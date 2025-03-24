@@ -66,5 +66,11 @@ fun HomeScreen(onNavigate: (Screens) -> Unit) {
         ) {
             Text("Finished Books")
         }
+        Button(
+            onClick = { onNavigate(Screens.Recommendations) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Recommendations")
+        }
     }
 }
