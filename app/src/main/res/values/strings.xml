@@ -1,3 +1,21 @@
 <resources>
     <string name="app_name">Book&amp;ReadingTracker</string>
+    <string name="add_recommendation">Add Recommendation</string>
+    <string name="recommendations">Recommendations</string>
+    <string name="toggle_sound">Toggle sound</string>
+    <string name="find_recommendations">Find Recommendations</string>
+    <string name="no_recommendations">No recommendations yet</string>
+    <string name="add_books_to_recommend">Add books you\'d recommend to others</string>
+    <string name="delete">Delete</string>
+    <string name="added_on">Added %s</string>
+    <string name="book_title_required">Book Title*</string>
+    <string name="rating_value">Rating: %s/5</string>
+    <string name="why_recommend">Why do you recommend this book?</string>
+    <string name="add">Add</string>
+    <string name="cancel">Cancel</string>
+    <string name="choose_source">Choose Source</string>
+    <string name="select_recommendation_source">Select where to search for book recommendations</string>
+    <string name="delete_recommendation">Delete Recommendation</string>
+    <string name="confirm_delete_recommendation">Are you sure you want to delete this recommendation?</string>
+    <string name="error_opening_link">Error opening link</string>
 </resources>

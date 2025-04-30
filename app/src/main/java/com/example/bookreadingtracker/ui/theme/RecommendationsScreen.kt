@@ -1,49 +1,76 @@
 package com.example.bookreadingtracker.ui.theme
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import java.text.SimpleDateFormat
-import java.util.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.bookreadingtracker.R
+import com.example.bookreadingtracker.data.RecommendedBook
+import com.example.bookreadingtracker.viewmodels.RecommendationsViewModel
 
-// Add this data class if not already present
-data class RecommendedBook(
-    val id: String = UUID.randomUUID().toString(),
-    val title: String,
-    val rating: Float = 0f,
-    val review: String = "",
-    val addedDate: String = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date())
-)
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecommendationsScreen() {
-    var recommendedBooks by remember { mutableStateOf<List<RecommendedBook>>(emptyList()) }
-    var showAddDialog by remember { mutableStateOf(false) }
+fun RecommendationsScreen(
+    viewModel: RecommendationsViewModel = viewModel()
+) {
+    // Collect all states from ViewModel
+    val recommendedBooks by viewModel.recommendedBooks.collectAsStateWithLifecycle()
+    val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
+    val showAddDialog by viewModel.showAddDialog.collectAsStateWithLifecycle()
+    val showSourceDialog by viewModel.showSourceDialog.collectAsStateWithLifecycle()
+    val showDeleteDialog by viewModel.showDeleteDialog.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Add Recommendation",
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
+            ExtendedFloatingActionButton(
+                onClick = { viewModel.setShowAddDialog(true) },
+                icon = { Icon(Icons.Default.Add, "Add Recommendation") },
+                text = { Text("Add Recommendation") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        },
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Book Recommendations") },
+                actions = {
+                    // Text-based sound toggle instead of icon
+                    TextButton(
+                        onClick = { viewModel.toggleSound() },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
+                        Text(
+                            text = if (isPlaying) "🔊" else "🔇",
+                            modifier = Modifier
+                                .clickable { viewModel.toggleSound() }
+                                .padding(horizontal = 16.dp),
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    }
+                }
+            )
         }
     ) { padding ->
         Column(
@@ -52,34 +79,94 @@ fun RecommendationsScreen() {
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            Text(
-                text = "Recommendations",
-                style = MaterialTheme.typography.headlineMedium
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { viewModel.setShowSourceDialog(true) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Text("Find Book Recommendations")
+            }
 
             if (recommendedBooks.isEmpty()) {
                 EmptyRecommendationsMessage()
             } else {
-                RecommendedBooksList(books = recommendedBooks)
+                RecommendedBooksList(
+                    books = recommendedBooks,
+                    onDelete = { viewModel.setShowDeleteDialog(it) }
+                )
             }
         }
     }
 
+    // Add Recommendation Dialog
     if (showAddDialog) {
         AddRecommendationDialog(
-            onDismiss = { showAddDialog = false },
-            onConfirm = { newBook ->
-                recommendedBooks = recommendedBooks + newBook
-                showAddDialog = false
+            onDismiss = { viewModel.setShowAddDialog(false) },
+            onConfirm = { title, rating, review ->
+                viewModel.addRecommendation(title, rating, review)
+                viewModel.setShowAddDialog(false)
+            }
+        )
+    }
+
+    // Source Selection Dialog
+    if (showSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.setShowSourceDialog(false) },
+            title = { Text("Select Source") },
+            text = { Text("Choose where to find book recommendations") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        context.openUrl("https://www.goodreads.com/")
+                        viewModel.setShowSourceDialog(false)
+                    }
+                ) {
+                    Text("Goodreads")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.setShowSourceDialog(false) }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Delete Confirmation Dialog
+    showDeleteDialog?.let { bookId ->
+        AlertDialog(
+            onDismissRequest = { viewModel.setShowDeleteDialog(null) },
+            title = { Text("Delete Recommendation") },
+            text = { Text("Are you sure you want to delete this recommendation?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteRecommendation(bookId)
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.setShowDeleteDialog(null) }) {
+                    Text("Cancel")
+                }
             }
         )
     }
 }
 
 @Composable
-fun EmptyRecommendationsMessage() {
+private fun EmptyRecommendationsMessage() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -100,29 +187,47 @@ fun EmptyRecommendationsMessage() {
 }
 
 @Composable
-fun RecommendedBooksList(books: List<RecommendedBook>) {
+private fun RecommendedBooksList(
+    books: List<RecommendedBook>,
+    onDelete: (String) -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        items(books) { book ->
-            RecommendedBookItem(book = book)
+        items(books, key = { it.id }) { book ->
+            RecommendedBookItem(
+                book = book,
+                onDelete = { onDelete(book.id) }
+            )
         }
     }
 }
 
 @Composable
-fun RecommendedBookItem(book: RecommendedBook) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = book.title,
-                style = MaterialTheme.typography.titleLarge
-            )
+private fun RecommendedBookItem(
+    book: RecommendedBook,
+    onDelete: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = book.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -130,7 +235,7 @@ fun RecommendedBookItem(book: RecommendedBook) {
             ) {
                 RatingBar(rating = book.rating)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "${"%.1f".format(book.rating)}/5")
+                Text(text = "%.1f/5".format(book.rating))
             }
 
             if (book.review.isNotBlank()) {
@@ -152,9 +257,9 @@ fun RecommendedBookItem(book: RecommendedBook) {
 }
 
 @Composable
-fun AddRecommendationDialog(
+private fun AddRecommendationDialog(
     onDismiss: () -> Unit,
-    onConfirm: (RecommendedBook) -> Unit
+    onConfirm: (String, Float, String) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var rating by remember { mutableFloatStateOf(0f) }
@@ -177,7 +282,7 @@ fun AddRecommendationDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("Rating: ${"%.1f".format(rating)}/5")
+                Text("Rating: %.1f/5".format(rating))
                 Slider(
                     value = rating,
                     onValueChange = { rating = it },
@@ -201,16 +306,12 @@ fun AddRecommendationDialog(
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        onConfirm(RecommendedBook(
-                            title = title,
-                            rating = rating,
-                            review = review
-                        ))
+                        onConfirm(title, rating, review)
                     }
                 },
                 enabled = title.isNotBlank()
             ) {
-                Text("Add Recommendation")
+                Text("Add")
             }
         },
         dismissButton = {
@@ -222,7 +323,7 @@ fun AddRecommendationDialog(
 }
 
 @Composable
-fun RatingBar(rating: Float) {
+private fun RatingBar(rating: Float) {
     Row {
         repeat(5) { index ->
             Icon(
@@ -232,5 +333,16 @@ fun RatingBar(rating: Float) {
                 modifier = Modifier.size(24.dp)
             )
         }
+    }
+}
+
+private fun Context.openUrl(url: String) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        if (intent.resolveActivity(packageManager) != null) {
+            startActivity(intent)
+        }
+    } catch (e: Exception) {
+        Toast.makeText(this, "Error opening link", Toast.LENGTH_SHORT).show()
     }
 }

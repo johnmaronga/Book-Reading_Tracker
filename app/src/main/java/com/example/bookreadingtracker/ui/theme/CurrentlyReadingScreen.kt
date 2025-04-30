@@ -11,9 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.material3.Surface
+import android.content.res.Configuration
 
 // Data class for currently reading books
 data class CurrentBook(
@@ -242,3 +245,107 @@ fun AddCurrentBookDialog(
         }
     )
 }
+
+// Sample data for previews
+private val sampleBooks = listOf(
+    CurrentBook(
+        title = "The Midnight Library",
+        author = "Matt Haig",
+        currentPage = 142,
+        totalPages = 304
+    ),
+    CurrentBook(
+        title = "Atomic Habits",
+        author = "James Clear",
+        currentPage = 56,
+        totalPages = 320
+    ),
+    CurrentBook(
+        title = "Project Hail Mary",
+        author = "Andy Weir",
+        currentPage = 231
+    )
+)
+
+// Preview functions
+@Preview(
+    name = "Empty State",
+    showBackground = true,
+    device = "spec:width=411dp,height=891dp"
+)
+@Composable
+fun CurrentlyReadingEmptyPreview() {
+    MaterialTheme {
+        Surface {
+            CurrentlyReadingScreen()
+        }
+    }
+}
+
+@Preview(
+    name = "With Books",
+    showBackground = true,
+    device = "spec:width=411dp,height=891dp"
+)
+@Composable
+fun CurrentlyReadingPopulatedPreview() {
+    MaterialTheme {
+        Surface {
+            // Create a custom version that starts with sample data
+            var books by remember { mutableStateOf(sampleBooks) }
+            var showDialog by remember { mutableStateOf(false) }
+
+            Scaffold(
+                floatingActionButton = {
+                    FloatingActionButton(
+                        onClick = { showDialog = true },
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Book")
+                    }
+                }
+            ) { padding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(16.dp)
+                ) {
+                    CurrentBooksList(books = books)
+                }
+            }
+
+            if (showDialog) {
+                AddCurrentBookDialog(
+                    onDismiss = { showDialog = false },
+                    onConfirm = { newBook ->
+                        books = books + newBook
+                        showDialog = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Preview(
+    name = "Dark Theme",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true
+)
+
+
+@Preview(
+    name = "Tablet Layout",
+    device = "spec:width=1280dp,height=800dp",
+    showBackground = true
+)
+@Composable
+fun CurrentlyReadingTabletPreview() {
+    MaterialTheme {
+        Surface {
+            CurrentlyReadingScreen()
+        }
+    }
+}
+
